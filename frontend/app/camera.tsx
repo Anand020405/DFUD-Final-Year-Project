@@ -1,9 +1,10 @@
 /**
  * Camera Screen with Foot Overlay
+ * Captures foot image and returns to main screen
  */
 
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +26,7 @@ export default function CameraScreen() {
         <Ionicons name="camera-outline" size={80} color="#6b7280" />
         <Text style={styles.permissionTitle}>Camera Permission Required</Text>
         <Text style={styles.permissionText}>
-          We need access to your camera to capture foot images for analysis.
+          We need access to your camera to capture foot images for local AI analysis.
         </Text>
         <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
           <Text style={styles.permissionButtonText}>Grant Permission</Text>
@@ -38,15 +39,15 @@ export default function CameraScreen() {
     if (cameraRef.current) {
       try {
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.7,
-          base64: true,
+          quality: 0.8,
+          base64: false,
         });
 
-        if (photo && photo.base64) {
-          // Navigate to manual entry with image data
-          router.push({
-            pathname: '/manual-entry',
-            params: { imageData: `data:image/jpeg;base64,${photo.base64}` }
+        if (photo && photo.uri) {
+          // Navigate back to home with captured image
+          router.replace({
+            pathname: '/',
+            params: { capturedImageUri: photo.uri }
           });
         }
       } catch (error) {

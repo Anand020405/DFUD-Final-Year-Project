@@ -1,49 +1,38 @@
 /**
- * Result Screen
- * Displays risk assessment results with color-coded dashboard
+ * Result Screen - Offline AI Classification Results
+ * Displays prediction, confidence, and recommendations
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getRiskColor, getPredictionExplanation } from '../services/ulcerClassifier';
 
 export default function ResultScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const riskScore = parseFloat(params.riskScore as string);
-  const riskLevel = params.riskLevel as string;
-  const color = params.color as string;
-  const advice = params.advice as string;
-  const aiConfidence = parseFloat(params.aiConfidence as string);
-  const clinicalScore = parseFloat(params.clinicalScore as string);
-  const bloodSugar = params.bloodSugar as string;
-  const tempDifference = params.tempDifference as string;
+  const prediction = params.prediction as string;
+  const confidence = parseFloat(params.confidence as string);
+  const processingTime = params.processingTime as string;
+  const imageUri = params.imageUri as string;
+
+  const color = getRiskColor(prediction);
+  const explanation = getPredictionExplanation(prediction);
 
   const getIcon = () => {
-    switch (riskLevel) {
-      case 'Low':
+    switch (prediction) {
+      case 'Healthy':
         return 'checkmark-circle';
-      case 'Moderate':
+      case 'Mild Ulcer':
         return 'warning';
-      case 'High':
+      case 'Moderate Ulcer':
+        return 'alert';
+      case 'Severe Ulcer':
         return 'alert-circle';
       default:
         return 'information-circle';
-    }
-  };
-
-  const getStatusMessage = () => {
-    switch (riskLevel) {
-      case 'Low':
-        return 'Low Risk Detected';
-      case 'Moderate':
-        return 'Moderate Risk - Monitor Closely';
-      case 'High':
-        return 'High Risk - Urgent Action Needed';
-      default:
-        return 'Risk Assessment Complete';
     }
   };
 
@@ -60,71 +49,66 @@ export default function ResultScreen() {
           <Ionicons name={getIcon()} size={64} color="#fff" />
         </View>
 
-        <Text style={styles.statusText}>{getStatusMessage()}</Text>
+        <Text style={styles.statusText}>Prediction</Text>
+        <Text style={[styles.predictionText, { color }]}>{prediction}</Text>
 
-        <View style={styles.scoreContainer}>
-          <Text style={styles.scoreLabel}>Risk Score</Text>
-          <Text style={[styles.scoreValue, { color }]}>
-            {(riskScore * 100).toFixed(0)}%
+        <View style={styles.confidenceContainer}>
+          <Text style={styles.confidenceLabel}>Confidence</Text>
+          <Text style={[styles.confidenceValue, { color }]}>
+            {(confidence * 100).toFixed(0)}%
           </Text>
         </View>
 
-        <View style={styles.riskBar}>
+        <View style={styles.progressBar}>
           <View
             style={[
-              styles.riskBarFill,
-              { width: `${riskScore * 100}%`, backgroundColor: color },
+              styles.progressFill,
+              { width: `${confidence * 100}%`, backgroundColor: color },
             ]}
           />
         </View>
-
-        <View style={styles.scaleLabels}>
-          <Text style={styles.scaleLabel}>Low</Text>
-          <Text style={styles.scaleLabel}>Moderate</Text>
-          <Text style={styles.scaleLabel}>High</Text>
-        </View>
       </View>
 
+      {imageUri && (
+        <View style={styles.imageCard}>
+          <Text style={styles.cardTitle}>Analyzed Image</Text>
+          <Image source={{ uri: imageUri }} style={styles.analyzedImage} />
+        </View>
+      )}
+
       <View style={styles.detailsCard}>
-        <Text style={styles.detailsTitle}>Assessment Details</Text>
+        <View style={styles.detailHeader}>
+          <Ionicons name="information-circle" size={24} color="#3b82f6" />
+          <Text style={styles.cardTitle}>Analysis Details</Text>
+        </View>
 
         <View style={styles.detailRow}>
           <View style={styles.detailIcon}>
-            <Ionicons name="analytics" size={20} color="#3b82f6" />
+            <Ionicons name="flash" size={20} color="#eab308" />
           </View>
           <View style={styles.detailContent}>
-            <Text style={styles.detailLabel}>AI Confidence</Text>
-            <Text style={styles.detailValue}>{(aiConfidence * 100).toFixed(0)}%</Text>
+            <Text style={styles.detailLabel}>Processing Time</Text>
+            <Text style={styles.detailValue}>{processingTime}ms</Text>
           </View>
         </View>
 
         <View style={styles.detailRow}>
           <View style={styles.detailIcon}>
-            <Ionicons name="fitness" size={20} color="#8b5cf6" />
+            <Ionicons name="phone-portrait" size={20} color="#22c55e" />
           </View>
           <View style={styles.detailContent}>
-            <Text style={styles.detailLabel}>Clinical Score</Text>
-            <Text style={styles.detailValue}>{(clinicalScore * 100).toFixed(0)}%</Text>
+            <Text style={styles.detailLabel}>Processing Location</Text>
+            <Text style={styles.detailValue}>On Device (Offline)</Text>
           </View>
         </View>
 
         <View style={styles.detailRow}>
           <View style={styles.detailIcon}>
-            <Ionicons name="water" size={20} color="#3b82f6" />
+            <Ionicons name="shield-checkmark" size={20} color="#3b82f6" />
           </View>
           <View style={styles.detailContent}>
-            <Text style={styles.detailLabel}>Blood Sugar</Text>
-            <Text style={styles.detailValue}>{bloodSugar} mg/dL</Text>
-          </View>
-        </View>
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailIcon}>
-            <Ionicons name="thermometer" size={20} color="#ef4444" />
-          </View>
-          <View style={styles.detailContent}>
-            <Text style={styles.detailLabel}>Temp Difference</Text>
-            <Text style={styles.detailValue}>{tempDifference} °C</Text>
+            <Text style={styles.detailLabel}>Data Privacy</Text>
+            <Text style={styles.detailValue}>100% Private</Text>
           </View>
         </View>
       </View>
@@ -132,9 +116,9 @@ export default function ResultScreen() {
       <View style={[styles.adviceCard, { borderLeftColor: color }]}>
         <View style={styles.adviceHeader}>
           <Ionicons name="medical" size={24} color={color} />
-          <Text style={styles.adviceTitle}>Recommended Actions</Text>
+          <Text style={styles.adviceTitle}>Recommendation</Text>
         </View>
-        <Text style={styles.adviceText}>{advice}</Text>
+        <Text style={styles.adviceText}>{explanation}</Text>
       </View>
 
       <View style={styles.actions}>
@@ -143,8 +127,8 @@ export default function ResultScreen() {
           onPress={() => router.push('/')}
           activeOpacity={0.8}
         >
-          <Text style={styles.buttonText}>New Scan</Text>
-          <Ionicons name="add-circle" size={24} color="#fff" />
+          <Ionicons name="camera" size={24} color="#fff" />
+          <Text style={styles.buttonText}>New Analysis</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -152,9 +136,16 @@ export default function ResultScreen() {
           onPress={() => router.push('/history')}
           activeOpacity={0.8}
         >
-          <Text style={styles.buttonText}>View History</Text>
           <Ionicons name="time" size={24} color="#fff" />
+          <Text style={styles.buttonText}>View History</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.disclaimer}>
+        <Ionicons name="alert-circle" size={20} color="#ef4444" />
+        <Text style={styles.disclaimerText}>
+          This is an AI screening tool. Always consult healthcare professionals for proper diagnosis and treatment.
+        </Text>
       </View>
     </ScrollView>
   );
@@ -198,45 +189,53 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   statusText: {
-    fontSize: 24,
+    fontSize: 16,
+    color: '#94a3b8',
+    marginBottom: 8,
+  },
+  predictionText: {
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#fff',
     textAlign: 'center',
     marginBottom: 24,
   },
-  scoreContainer: {
+  confidenceContainer: {
     alignItems: 'center',
     marginBottom: 16,
   },
-  scoreLabel: {
+  confidenceLabel: {
     fontSize: 14,
     color: '#94a3b8',
     marginBottom: 8,
   },
-  scoreValue: {
+  confidenceValue: {
     fontSize: 48,
     fontWeight: 'bold',
   },
-  riskBar: {
+  progressBar: {
     width: '100%',
     height: 12,
     backgroundColor: '#334155',
     borderRadius: 6,
     overflow: 'hidden',
-    marginBottom: 8,
   },
-  riskBarFill: {
+  progressFill: {
     height: '100%',
     borderRadius: 6,
   },
-  scaleLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+  imageCard: {
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  scaleLabel: {
-    fontSize: 12,
-    color: '#94a3b8',
+  analyzedImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginTop: 12,
   },
   detailsCard: {
     backgroundColor: '#1e293b',
@@ -246,11 +245,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
-  detailsTitle: {
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  cardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 20,
   },
   detailRow: {
     flexDirection: 'row',
@@ -326,5 +330,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  disclaimer: {
+    flexDirection: 'row',
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+    borderWidth: 2,
+    borderColor: '#ef4444',
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#94a3b8',
+    lineHeight: 20,
   },
 });
