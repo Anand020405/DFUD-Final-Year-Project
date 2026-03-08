@@ -25,11 +25,7 @@ export default function ResultScreen() {
     switch (prediction) {
       case 'Healthy':
         return 'checkmark-circle';
-      case 'Mild Ulcer':
-        return 'warning';
-      case 'Moderate Ulcer':
-        return 'alert';
-      case 'Severe Ulcer':
+      case 'Ulcer':
         return 'alert-circle';
       default:
         return 'information-circle';

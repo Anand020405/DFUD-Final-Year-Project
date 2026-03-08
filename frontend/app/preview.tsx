@@ -75,12 +75,8 @@ export default function PreviewScreen() {
     switch (prediction) {
       case 'Healthy':
         return 'No signs of ulceration detected. Continue regular foot care and monitoring.';
-      case 'Mild Ulcer':
-        return 'Early signs of ulceration detected. Consult healthcare provider for assessment.';
-      case 'Moderate Ulcer':
-        return 'Moderate ulceration detected. Seek medical attention promptly for proper treatment.';
-      case 'Severe Ulcer':
-        return 'Severe ulceration detected. Urgent medical attention required.';
+      case 'Ulcer':
+        return 'Signs of ulceration detected. Seek immediate medical attention.';
       default:
         return 'Analysis complete.';
     }

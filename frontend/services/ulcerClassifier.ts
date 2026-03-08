@@ -1,63 +1,129 @@
 /**
- * Ulcer Classifier Service
- * Local TensorFlow Lite inference for foot ulcer detection
+ * Ulcer Classifier Service - REAL TensorFlow Lite Inference
+ * Binary classification: Healthy (0) vs Ulcer (1)
  * 
- * MVP: Simulates model inference - ready for real TFLite model integration
- * Future: Load actual .tflite model using expo-image-manipulator + TensorFlow.js
+ * Model: dfu_model.tflite
+ * Input: 224x224x3 RGB image, normalized [0-1]
+ * Output: Single sigmoid probability [0-1]
  */
 
+import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
+import { decode as decodeJpeg } from 'jpeg-js';
+import { Asset } from 'expo-asset';
 
 export interface ClassificationResult {
-  prediction: 'Healthy' | 'Mild Ulcer' | 'Moderate Ulcer' | 'Severe Ulcer';
+  prediction: 'Healthy' | 'Ulcer';
   confidence: number;
   processingTime: number;
+  probability: number;
 }
 
-export interface ImageTensor {
-  data: Float32Array;
-  shape: number[];
-}
+let model: tf.GraphModel | null = null;
+let isInitialized = false;
 
 /**
- * Preprocess image for model input
- * Resizes to 224x224 and normalizes pixel values
+ * Initialize TensorFlow.js and load the TFLite model
  */
-export async function preprocessImage(imageUri: string): Promise<ImageTensor> {
+export async function initializeModel(): Promise<void> {
+  if (isInitialized && model) {
+    console.log('Model already initialized');
+    return;
+  }
+
   try {
-    // Resize image to 224x224 (standard input size for MobileNet-based models)
-    const manipulatedImage = await ImageManipulator.manipulateAsync(
-      imageUri,
-      [
-        { resize: { width: 224, height: 224 } },
-      ],
-      { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
-    );
-
-    // In production, would decode image pixels and normalize to [0,1] or [-1,1]
-    // For MVP, return mock tensor data
-    const tensorData = new Float32Array(224 * 224 * 3);
+    console.log('Initializing TensorFlow.js...');
     
-    // Simulate normalized pixel values (0-1 range)
-    for (let i = 0; i < tensorData.length; i++) {
-      tensorData[i] = Math.random();
-    }
+    // Wait for TensorFlow to be ready
+    await tf.ready();
+    console.log('✅ TensorFlow.js ready, backend:', tf.getBackend());
+    
+    // Load the model from assets
+    console.log('Loading TFLite model from assets...');
+    
+    const modelPath = require('../assets/models/dfu_model.tflite');
+    model = await tf.loadGraphModel(modelPath);
 
-    return {
-      data: tensorData,
-      shape: [1, 224, 224, 3], // Batch, Height, Width, Channels
-    };
+    console.log('✅ TFLite model loaded successfully');
+    console.log('Model input shape:', model.inputs[0].shape);
+    console.log('Model output shape:', model.outputs[0].shape);
+    
+    isInitialized = true;
   } catch (error) {
-    console.error('Error preprocessing image:', error);
-    throw new Error('Failed to preprocess image');
+    console.error('❌ Error initializing model:', error);
+    // Fallback: Model loading will be attempted on first inference
+    isInitialized = false;
   }
 }
 
 /**
- * Run inference on preprocessed image
- * 
- * MVP: Simulates TFLite model prediction
- * Future: Load real model and run actual inference
+ * Preprocess image for model input
+ * - Resize to 224x224
+ * - Normalize pixel values to [0, 1]  
+ * - Convert to tensor format [1, 224, 224, 3]
+ */
+async function preprocessImage(imageUri: string): Promise<tf.Tensor4D> {
+  try {
+    console.log('📸 Preprocessing image:', imageUri);
+    
+    // Step 1: Resize image to 224x224
+    const manipulatedImage = await ImageManipulator.manipulateAsync(
+      imageUri,
+      [{ resize: { width: 224, height: 224 } }],
+      { 
+        compress: 1, 
+        format: ImageManipulator.SaveFormat.JPEG,
+        base64: false,
+      }
+    );
+
+    console.log('✅ Image resized to 224x224');
+
+    // Step 2: Read image file
+    const imageBase64 = await FileSystem.readAsStringAsync(manipulatedImage.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    // Step 3: Decode JPEG to raw pixel data
+    const imageBuffer = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+    const rawImageData = decodeJpeg(imageBuffer, { useTArray: true });
+
+    console.log('✅ JPEG decoded, size:', rawImageData.width, 'x', rawImageData.height);
+
+    // Step 4: Convert to tensor and normalize [0-1]
+    const imageTensor = tf.tidy(() => {
+      // Create tensor from raw pixel data [224, 224, 4] (RGBA)
+      const tensor = tf.tensor3d(rawImageData.data, [
+        rawImageData.height,
+        rawImageData.width,
+        4,
+      ]);
+
+      // Remove alpha channel [224, 224, 3] (RGB)
+      const rgb = tensor.slice([0, 0, 0], [224, 224, 3]);
+
+      // Normalize to [0, 1]
+      const normalized = rgb.div(255.0);
+
+      // Add batch dimension [1, 224, 224, 3]
+      const batched = normalized.expandDims(0) as tf.Tensor4D;
+
+      return batched;
+    });
+
+    console.log('✅ Tensor created:', imageTensor.shape);
+
+    return imageTensor;
+  } catch (error) {
+    console.error('❌ Error preprocessing image:', error);
+    throw new Error(`Failed to preprocess image: ${error}`);
+  }
+}
+
+/**
+ * Run inference on captured foot image
  * 
  * @param imageUri - URI of captured foot image
  * @returns Classification result with prediction and confidence
@@ -66,120 +132,87 @@ export async function analyzeFootImage(imageUri: string): Promise<Classification
   const startTime = Date.now();
 
   try {
-    // Step 1: Preprocess image
-    console.log('Preprocessing image...');
-    const tensor = await preprocessImage(imageUri);
-    console.log('Image preprocessed:', tensor.shape);
+    // Initialize model if not already done
+    if (!isInitialized || !model) {
+      console.log('Model not initialized, loading now...');
+      await initializeModel();
+    }
 
-    // Step 2: Simulate inference delay (real model would take 100-500ms)
-    await new Promise(resolve => setTimeout(resolve, 800));
+    if (!model) {
+      throw new Error('Failed to load model');
+    }
 
-    // Step 3: Simulate model prediction
-    // In production, would run: model.predict(tensor)
-    const predictions = simulateModelInference(tensor);
+    console.log('🔬 Starting AI analysis...');
 
-    const processingTime = Date.now() - startTime;
+    // Preprocess image
+    const inputTensor = await preprocessImage(imageUri);
+
+    console.log('🧠 Running model inference...');
+
+    // Run inference
+    const startInference = Date.now();
+    const output = model.predict(inputTensor) as tf.Tensor;
+    const inferenceTime = Date.now() - startInference;
+
+    console.log(`✅ Inference completed in ${inferenceTime}ms`);
+
+    // Get probability value
+    const probabilityArray = await output.array() as number[][];
+    const probability = probabilityArray[0][0]; // Sigmoid output [0-1]
+
+    console.log('📊 Raw model output (probability):', probability.toFixed(4));
+
+    // Binary classification
+    // probability > 0.5 → Ulcer (class 1)
+    // probability <= 0.5 → Healthy (class 0)
+    const prediction: 'Healthy' | 'Ulcer' = probability > 0.5 ? 'Ulcer' : 'Healthy';
+    
+    // Confidence calculation
+    const confidence = prediction === 'Ulcer' ? probability : (1 - probability);
+
+    // Clean up tensors to prevent memory leaks
+    tf.dispose([inputTensor, output]);
+
+    const totalProcessingTime = Date.now() - startTime;
+
+    console.log('✅ Analysis complete:', {
+      prediction,
+      confidence: `${(confidence * 100).toFixed(1)}%`,
+      probability: probability.toFixed(4),
+      inferenceTime: `${inferenceTime}ms`,
+      totalTime: `${totalProcessingTime}ms`,
+    });
+
+    // Log memory usage
+    const memInfo = tf.memory();
+    console.log('📊 TF Memory:', {
+      numTensors: memInfo.numTensors,
+      numBytes: `${(memInfo.numBytes / 1024 / 1024).toFixed(2)} MB`,
+    });
 
     return {
-      ...predictions,
-      processingTime,
+      prediction,
+      confidence,
+      probability,
+      processingTime: totalProcessingTime,
     };
   } catch (error) {
-    console.error('Error analyzing image:', error);
-    throw new Error('Failed to analyze foot image');
+    console.error('❌ Error analyzing image:', error);
+    throw new Error(`Failed to analyze foot image: ${error}`);
   }
 }
 
 /**
- * Simulate TensorFlow Lite model inference
- * Returns class probabilities for each ulcer category
- * 
- * PRODUCTION REPLACEMENT:
- * ```
- * const model = await loadTFLiteModel('ulcer_classifier.tflite');
- * const output = model.predict(tensor);
- * return interpretOutput(output);
- * ```
- */
-function simulateModelInference(tensor: ImageTensor): Omit<ClassificationResult, 'processingTime'> {
-  // Simulate class probabilities
-  const classes: Array<'Healthy' | 'Mild Ulcer' | 'Moderate Ulcer' | 'Severe Ulcer'> = [
-    'Healthy',
-    'Mild Ulcer',
-    'Moderate Ulcer',
-    'Severe Ulcer',
-  ];
-
-  // Generate random probabilities that sum to 1
-  const probabilities = [];
-  let sum = 0;
-  for (let i = 0; i < classes.length; i++) {
-    const prob = Math.random();
-    probabilities.push(prob);
-    sum += prob;
-  }
-  
-  // Normalize to sum to 1
-  const normalizedProbs = probabilities.map(p => p / sum);
-
-  // Find highest confidence class
-  let maxIndex = 0;
-  let maxProb = normalizedProbs[0];
-  for (let i = 1; i < normalizedProbs.length; i++) {
-    if (normalizedProbs[i] > maxProb) {
-      maxProb = normalizedProbs[i];
-      maxIndex = i;
-    }
-  }
-
-  // For MVP demo, bias towards "Healthy" with high confidence
-  const prediction = classes[0]; // Always return "Healthy" for demo
-  const confidence = 0.91 + (Math.random() * 0.08); // 0.91 - 0.99
-
-  return {
-    prediction,
-    confidence,
-  };
-}
-
-/**
- * Load TensorFlow Lite model (Placeholder for production)
- * 
- * PRODUCTION IMPLEMENTATION:
- * ```typescript
- * import * as tf from '@tensorflow/tfjs';
- * import '@tensorflow/tfjs-react-native';
- * 
- * export async function loadModel() {
- *   await tf.ready();
- *   const modelJson = await fetch(require('../assets/model.json'));
- *   const modelWeights = await fetch(require('../assets/weights.bin'));
- *   const model = await tf.loadLayersModel(bundleResourceIO(modelJson, modelWeights));
- *   return model;
- * }
- * ```
- */
-export async function loadModel(): Promise<void> {
-  console.log('Model loading simulated for MVP');
-  // In production: Load actual TFLite model
-  await new Promise(resolve => setTimeout(resolve, 100));
-}
-
-/**
- * Get prediction explanation based on class
+ * Get prediction explanation based on classification
  */
 export function getPredictionExplanation(prediction: string): string {
   switch (prediction) {
     case 'Healthy':
-      return 'No signs of ulceration detected. Continue regular foot care and monitoring.';
-    case 'Mild Ulcer':
-      return 'Early signs of ulceration detected. Consult healthcare provider for assessment.';
-    case 'Moderate Ulcer':
-      return 'Moderate ulceration detected. Seek medical attention promptly for proper treatment.';
-    case 'Severe Ulcer':
-      return 'Severe ulceration detected. Urgent medical attention required. Contact specialist immediately.';
+      return 'No signs of ulceration detected. Continue regular foot care and daily monitoring. Maintain healthy blood sugar levels and inspect feet regularly.';
+    case 'Ulcer':
+      return 'Signs of ulceration detected. Seek immediate medical attention from a healthcare professional. Do not delay - early treatment is crucial for diabetic foot ulcers.';
     default:
-      return 'Analysis complete. Consult healthcare provider for interpretation.';
+      return 'Analysis complete. Consult healthcare provider for interpretation and next steps.';
   }
 }
 
@@ -190,13 +223,36 @@ export function getRiskColor(prediction: string): string {
   switch (prediction) {
     case 'Healthy':
       return '#22c55e'; // Green
-    case 'Mild Ulcer':
-      return '#eab308'; // Yellow
-    case 'Moderate Ulcer':
-      return '#f97316'; // Orange
-    case 'Severe Ulcer':
+    case 'Ulcer':
       return '#ef4444'; // Red
     default:
       return '#6b7280'; // Gray
+  }
+}
+
+/**
+ * Get model information and memory usage
+ */
+export function getModelInfo(): {
+  isLoaded: boolean;
+  backend: string;
+  memoryUsage: tf.MemoryInfo;
+} {
+  return {
+    isLoaded: isInitialized && model !== null,
+    backend: tf.getBackend(),
+    memoryUsage: tf.memory(),
+  };
+}
+
+/**
+ * Cleanup and dispose model
+ */
+export function disposeModel(): void {
+  if (model) {
+    model.dispose();
+    model = null;
+    isInitialized = false;
+    console.log('🧹 Model disposed');
   }
 }
