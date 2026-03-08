@@ -3,11 +3,11 @@
  * Displays captured image and provides analyze/retake options
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ImagePreview } from '../components/ImagePreview';
-import { analyzeFootImage, ClassificationResult } from '../services/ulcerClassifier';
+import { analyzeFootImage, ClassificationResult, prewarmBackend } from '../services/ulcerClassifier';
 import { DatabaseService } from '../services/DatabaseService';
 
 export default function PreviewScreen() {
@@ -16,6 +16,14 @@ export default function PreviewScreen() {
   const imageUri = params.imageUri as string;
 
   const [analyzing, setAnalyzing] = useState(false);
+
+  // Pre-warm TensorFlow backend when preview loads
+  useEffect(() => {
+    console.log('Preview screen loaded, pre-warming TensorFlow...');
+    prewarmBackend().catch(err => {
+      console.warn('Pre-warm failed:', err);
+    });
+  }, []);
 
   const handleAnalyzeImage = async () => {
     if (!imageUri) {
