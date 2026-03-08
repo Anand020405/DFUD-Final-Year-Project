@@ -1,6 +1,8 @@
 /**
  * Camera Screen with Foot Overlay
- * Captures foot image and returns to main screen
+ * Captures foot image and navigates to preview
+ * 
+ * FIX: CameraView children moved outside, proper navigation to preview screen
  */
 
 import React, { useState, useRef } from 'react';
@@ -44,10 +46,10 @@ export default function CameraScreen() {
         });
 
         if (photo && photo.uri) {
-          // Navigate back to home with captured image
-          router.replace({
-            pathname: '/',
-            params: { capturedImageUri: photo.uri }
+          // Navigate to preview screen with image URI
+          router.push({
+            pathname: '/preview',
+            params: { imageUri: photo.uri }
           });
         }
       } catch (error) {
@@ -63,41 +65,43 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-        <FootOverlay />
-        
-        <View style={styles.overlay}>
-          <View style={styles.topBar}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => router.back()}
-            >
-              <Ionicons name="close" size={32} color="#fff" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.instructionBox}>
-            <Text style={styles.instructionText}>
-              Align your foot within the green outline
-            </Text>
-          </View>
-
-          <View style={styles.bottomBar}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={toggleCameraFacing}
-            >
-              <Ionicons name="camera-reverse" size={32} color="#fff" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-              <View style={styles.captureButtonInner} />
-            </TouchableOpacity>
-
-            <View style={styles.iconButton} />
-          </View>
+      {/* CameraView without children - Expo requirement */}
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
+      
+      {/* Overlays outside CameraView */}
+      <FootOverlay />
+      
+      <View style={styles.overlay}>
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="close" size={32} color="#fff" />
+          </TouchableOpacity>
         </View>
-      </CameraView>
+
+        <View style={styles.instructionBox}>
+          <Text style={styles.instructionText}>
+            Align your foot within the green outline
+          </Text>
+        </View>
+
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={toggleCameraFacing}
+          >
+            <Ionicons name="camera-reverse" size={32} color="#fff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+            <View style={styles.captureButtonInner} />
+          </TouchableOpacity>
+
+          <View style={styles.iconButton} />
+        </View>
+      </View>
     </View>
   );
 }
@@ -140,7 +144,11 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   camera: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   overlay: {
     flex: 1,

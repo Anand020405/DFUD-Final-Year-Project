@@ -21,18 +21,22 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   analyzing = false,
 }) => {
   const { width } = Dimensions.get('window');
-  const imageSize = width - 48;
+  const imageSize = Math.min(width - 48, 400);
 
   return (
     <View style={styles.container}>
+      <Text style={styles.title}>Image Captured</Text>
+      
       <View style={styles.imageContainer}>
-        <Image source={{ uri: imageUri }} style={[styles.image, { width: imageSize, height: imageSize }]} />
+        <Image 
+          source={{ uri: imageUri }} 
+          style={[styles.image, { width: imageSize, height: imageSize }]} 
+          resizeMode="cover"
+        />
         
-        <View style={styles.overlay}>
-          <View style={styles.badge}>
-            <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
-            <Text style={styles.badgeText}>Image Captured</Text>
-          </View>
+        <View style={styles.badge}>
+          <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
+          <Text style={styles.badgeText}>Ready for Analysis</Text>
         </View>
       </View>
 
@@ -83,22 +87,29 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#0f172a',
   },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
   imageContainer: {
+    alignSelf: 'center',
     borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 24,
-    borderWidth: 2,
+    marginBottom: 32,
+    borderWidth: 3,
     borderColor: '#22c55e',
+    position: 'relative',
   },
   image: {
-    borderRadius: 14,
+    borderRadius: 13,
   },
-  overlay: {
+  badge: {
     position: 'absolute',
     top: 16,
     left: 16,
-  },
-  badge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

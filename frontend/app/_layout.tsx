@@ -55,6 +55,13 @@ export default function RootLayout() {
         }}
       />
       <Tabs.Screen
+        name="preview"
+        options={{
+          href: null, // Hide from tabs
+          headerTitle: 'Preview Image',
+        }}
+      />
+      <Tabs.Screen
         name="manual-entry"
         options={{
           href: null, // Hide from tabs

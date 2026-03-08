@@ -1,20 +1,16 @@
 /**
  * Main Screen - Offline AI Foot Ulcer Detection
- * Simple workflow: Capture → Analyze → Result
+ * Simple workflow: Capture → Preview → Analyze → Result
  */
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ImagePreview } from '../components/ImagePreview';
-import { analyzeFootImage, ClassificationResult } from '../services/ulcerClassifier';
 import { DatabaseService } from '../services/DatabaseService';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     // Initialize database on app start
@@ -24,89 +20,6 @@ export default function HomeScreen() {
   const handleCaptureImage = () => {
     router.push('/camera');
   };
-
-  const handleAnalyzeImage = async () => {
-    if (!capturedImage) return;
-
-    setAnalyzing(true);
-
-    try {
-      // Run local AI inference
-      const result: ClassificationResult = await analyzeFootImage(capturedImage);
-
-      // Save to local database
-      const dbService = DatabaseService.getInstance();
-      await dbService.initialize();
-      await dbService.saveScan({
-        imageData: capturedImage,
-        riskScore: result.confidence,
-        riskLevel: result.prediction,
-        aiConfidence: result.confidence,
-        bloodSugar: 0,
-        tempDifference: 0,
-        advice: getAdvice(result.prediction),
-        timestamp: new Date().toISOString(),
-      });
-
-      // Navigate to results
-      router.push({
-        pathname: '/result',
-        params: {
-          prediction: result.prediction,
-          confidence: result.confidence.toFixed(2),
-          processingTime: result.processingTime.toString(),
-          imageUri: capturedImage,
-        },
-      });
-    } catch (error) {
-      console.error('Error analyzing image:', error);
-      Alert.alert('Error', 'Failed to analyze image. Please try again.');
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const handleRetakePhoto = () => {
-    setCapturedImage(null);
-  };
-
-  const getAdvice = (prediction: string): string => {
-    switch (prediction) {
-      case 'Healthy':
-        return 'No signs of ulceration detected. Continue regular foot care and monitoring.';
-      case 'Mild Ulcer':
-        return 'Early signs of ulceration detected. Consult healthcare provider for assessment.';
-      case 'Moderate Ulcer':
-        return 'Moderate ulceration detected. Seek medical attention promptly for proper treatment.';
-      case 'Severe Ulcer':
-        return 'Severe ulceration detected. Urgent medical attention required.';
-      default:
-        return 'Analysis complete.';
-    }
-  };
-
-  // Listen for captured image from camera screen
-  React.useEffect(() => {
-    const handleRouteParams = () => {
-      // This will be set by the camera screen when returning
-      const params = router.params as any;
-      if (params?.capturedImageUri) {
-        setCapturedImage(params.capturedImageUri);
-      }
-    };
-    handleRouteParams();
-  }, [router.params]);
-
-  if (capturedImage) {
-    return (
-      <ImagePreview
-        imageUri={capturedImage}
-        onAnalyze={handleAnalyzeImage}
-        onRetake={handleRetakePhoto}
-        analyzing={analyzing}
-      />
-    );
-  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
