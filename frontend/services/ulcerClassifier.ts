@@ -138,18 +138,18 @@ async function preprocessImage(imageUri: string): Promise<{
     console.log('   [2/5] Reading image file...');
     const readStart = Date.now();
 
-    // Ensure file exists before reading
-    const fileInfo = await FileSystem.getInfoAsync(manipulatedImage.uri);
-    if (!fileInfo.exists) {
-      throw new Error('Resized image file not found');
+    // Read file directly - will throw error if file doesn't exist
+    let imageBase64: string;
+    try {
+      imageBase64 = await FileSystem.readAsStringAsync(
+        manipulatedImage.uri,
+        {
+          encoding: FileSystem.EncodingType.Base64,
+        }
+      );
+    } catch (readError) {
+      throw new Error(`Failed to read image file: ${readError}`);
     }
-
-    const imageBase64 = await FileSystem.readAsStringAsync(
-      manipulatedImage.uri,
-      {
-        encoding: FileSystem.EncodingType.Base64,
-      }
-    );
 
     const readTime = Date.now() - readStart;
     console.log(`   ✅ Read file in ${readTime}ms (${imageBase64.length} chars)`);
