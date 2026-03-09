@@ -242,3 +242,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "MVP complete. All core features working: camera with overlay, manual entry with sliders, risk calculation, result dashboard, history persistence, and info screen. Ready for user testing."
+  - agent: "main"
+    message: "PIPELINE FIX IN PROGRESS: Implemented pass-through classifier to validate the Camera → Preview → Analyze → Result pipeline. Removed complex TensorFlow.js dependencies temporarily. Using expo-file-system with proper import pattern. Database saving temporarily disabled for pipeline validation. User should test on Expo Go to verify the crash is fixed."

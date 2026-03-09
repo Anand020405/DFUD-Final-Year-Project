@@ -58,7 +58,7 @@ npx expo start
 npx expo start --web
 ```
 
-Access at: `https://foot-ulcer-ai.preview.emergentagent.com`
+Access at: `https://dfu-analyzer-1.preview.emergentagent.com`
 
 ---
 

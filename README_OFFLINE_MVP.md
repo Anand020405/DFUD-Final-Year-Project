@@ -298,7 +298,7 @@ npx tsc --noEmit
 ## Deployment
 
 ### Web Preview
-Already deployed at: `https://foot-ulcer-ai.preview.emergentagent.com`
+Already deployed at: `https://dfu-analyzer-1.preview.emergentagent.com`
 
 ### Mobile App Store
 1. Build production bundle:

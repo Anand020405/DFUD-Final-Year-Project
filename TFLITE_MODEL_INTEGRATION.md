@@ -293,7 +293,7 @@ npx expo start
 ### Web Preview:
 ```bash
 # Already deployed at:
-https://foot-ulcer-ai.preview.emergentagent.com
+https://dfu-analyzer-1.preview.emergentagent.com
 ```
 
 ---

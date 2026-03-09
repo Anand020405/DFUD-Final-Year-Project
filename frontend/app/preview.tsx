@@ -1,11 +1,11 @@
 /**
- * Preview Screen - Fixed UI State Management
+ * Preview Screen - Pipeline Validation Mode
  * 
- * CRITICAL FIXES:
+ * SIMPLIFIED for testing:
  * 1. Proper async/await handling
  * 2. UI state updates (analyzing → result)
  * 3. Error boundary and user feedback
- * 4. Race condition prevention
+ * 4. Database saving DISABLED for pipeline validation
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -17,7 +17,6 @@ import {
   ClassificationResult,
   prewarmBackend,
 } from '../services/ulcerClassifier';
-import { DatabaseService } from '../services/DatabaseService';
 
 export default function PreviewScreen() {
   const router = useRouter();
@@ -86,28 +85,7 @@ export default function PreviewScreen() {
         time: `${result.processingTime}ms`,
       });
 
-      // STEP 4: Save to database (CRITICAL: await completion)
-      console.log('💾 [PREVIEW] Saving to database...');
-      const dbStart = Date.now();
-
-      const dbService = DatabaseService.getInstance();
-      await dbService.initialize();
-
-      await dbService.saveScan({
-        imageData: imageUri,
-        riskScore: result.confidence,
-        riskLevel: result.prediction,
-        aiConfidence: result.confidence,
-        bloodSugar: 0,
-        tempDifference: 0,
-        advice: getAdvice(result.prediction),
-        timestamp: new Date().toISOString(),
-      });
-
-      const dbTime = Date.now() - dbStart;
-      console.log(`✅ [PREVIEW] Saved to database in ${dbTime}ms`);
-
-      // STEP 5: Navigate to results (CRITICAL: only after all async ops complete)
+      // STEP 4: Navigate to results (skip database for pipeline validation)
       console.log('🎯 [PREVIEW] Navigating to results...');
 
       router.push({
